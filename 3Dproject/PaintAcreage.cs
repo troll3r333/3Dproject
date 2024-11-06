@@ -6,82 +6,62 @@ using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.BoundaryRepresentation;
 using System.Linq;
 
-public class BrepSelection
+namespace _3Dproject
 {
-    [CommandMethod("SelectObject")]
-    public void SelectObject()
+    public class _3Dproject
     {
-
-        Document doc = Application.DocumentManager.MdiActiveDocument;
-        Editor ed = doc.Editor;
-        Database db = doc.Database;
-
-        PromptEntityOptions peo = new PromptEntityOptions("\nChọn một đối tượng 3D: ");
-        peo.SetRejectMessage("\nĐối tượng không phải là một khối 3D.");
-        peo.AddAllowedClass(typeof(Solid3d), true);
-        PromptEntityResult per = ed.GetEntity(peo);
-
-        // Kiểm tra kết quả lựa chọn
-        if (per.Status != PromptStatus.OK)
+        [CommandMethod("PaintAcreage")]
+        public void SelectObject()
         {
-            ed.WriteMessage("\nKhông có đối tượng 3D nào được chọn.");
-            return;
-        }
-        
-        using (Transaction tr = db.TransactionManager.StartTransaction())
-        {
-            Entity ent = tr.GetObject(per.ObjectId, OpenMode.ForRead) as Entity;
+            Document doc = Application.DocumentManager.MdiActiveDocument;
+            Editor ed = doc.Editor;
+            Database db = doc.Database;
 
-            if (ent is Solid3d solid3d)
+            // Yêu cầu người dùng chọn một đối tượng
+            PromptEntityOptions peo = new PromptEntityOptions("\nChọn một đối tượng 3D: ");
+            peo.SetRejectMessage("\nĐối tượng không phải là một khối 3D.");
+            peo.AddAllowedClass(typeof(Solid3d), true);
+            PromptEntityResult per = ed.GetEntity(peo);
+
+            // Kiểm tra kết quả lựa chọn
+            if (per.Status != PromptStatus.OK)
             {
+                ed.WriteMessage("\nKhông có đối tượng 3D nào được chọn.");
+                return;
+            }
 
-                // Tạo một BRep từ đối tượng Solid3D
-                using (Brep brep = new Brep(solid3d))
+            using (Transaction tr = db.TransactionManager.StartTransaction())
+            {
+                Entity ent = tr.GetObject(per.ObjectId, OpenMode.ForRead) as Entity;
+
+                if (ent is Solid3d solid3d)
                 {
-                    ed.WriteMessage("\nĐã truy xuất BRep từ đối tượng 3D.");
-
-                    // Lấy các thông tin về các mặt của BRep
-                    BrepFaceCollection faces = brep.Faces;
-                    ed.WriteMessage($"\nSố lượng mặt: {faces.Count()}");
-
-                    // Duyệt qua các mặt và hiển thị thông tin
-                    foreach (Autodesk.AutoCAD.BoundaryRepresentation.Face face in faces)
+                    // Tạo một BRep từ đối tượng Solid3D
+                    using (Brep brep = new Brep(solid3d))
                     {
-                        ed.WriteMessage($"\nMặt ID: {face.GetHashCode()}");
-                    }
+                        ed.WriteMessage("\nĐã truy xuất BRep từ đối tượng 3D.");
 
-                    // Lấy thông tin về các cạnh của BRep
-                    BrepEdgeCollection edges = brep.Edges;
-                    ed.WriteMessage($"\nSố lượng cạnh: {edges.Count()}");
+                        // Lấy các thông tin về các mặt của BRep
+                        BrepFaceCollection faces = brep.Faces;
+                        ed.WriteMessage($"\nSố lượng mặt: {faces.Count()}");
 
-                    foreach (Autodesk.AutoCAD.BoundaryRepresentation.Edge edge in edges)
-                    {
-                        Curve3d curve3d = edge.Curve;
-                        if (curve3d != null)
+                        // Duyệt qua các mặt và hiển thị thông tin diện tích
+                        foreach (Autodesk.AutoCAD.BoundaryRepresentation.Face face in faces)
                         {
-                            Point3d startPoint = curve3d.StartPoint;
-                            Point3d endPoint = curve3d.EndPoint;
-                            double tolerance = 1e-6;
-
-                            double startParam = curve3d.GetParameterOf(startPoint, new Tolerance(1e-3, 1e-3));
-                            double endParam = curve3d.GetParameterOf(endPoint, new Tolerance(1e-3, 1e-3));
-
-                            double length = curve3d.GetLength(startParam, endParam, tolerance);
-                            ed.WriteMessage($"\nChiều dài cạnh: {length}");
+                            // Lấy diện tích của từng mặt
+                            double area = face.GetArea();
+                            ed.WriteMessage($"\nMặt ID: {face.GetHashCode()}, Diện tích: {area}");
                         }
-                        else
-                        {
-                            ed.WriteMessage("\nKhông thể lấy Curve3d từ cạnh.");
-                        }
-
                     }
                 }
+                else
+                {
+                    ed.WriteMessage("\nĐối tượng không phải là một khối 3D hợp lệ.");
+                }
+                tr.Commit();
             }
-            else
-            {
-                ed.WriteMessage("\nĐối tượng không phải là một khối 3D hợp lệ.");
-            }
-            tr.Commit();
         }
+
     }
 }
+
